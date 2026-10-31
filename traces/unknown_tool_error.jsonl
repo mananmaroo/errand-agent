@@ -1,0 +1,5 @@
+{"run": "unknown_tool_error", "seq": 0, "kind": "model", "model": "scripted-v1", "input": "book an electrician in koramangala this week", "intent": "book", "slots": {"service": "electrician", "area": "koramangala", "date_range": ["2026-11-02", "2026-11-07"]}, "tokens": "***"}
+{"run": "unknown_tool_error", "seq": 1, "kind": "tool", "name": "search_providers", "args": {"service": "electrician", "area": "koramangala", "date_range": ["2026-11-02", "2026-11-07"]}, "ok": false, "error": "RuntimeError: boom", "latency_ms": 0.01}
+{"run": "unknown_tool_error", "seq": 2, "kind": "error", "error": "RuntimeError: boom"}
+{"run": "unknown_tool_error", "seq": 3, "kind": "state", "frm": "COLLECTING", "to": "FAILED", "why": "Something unexpected went wrong, so I stopped. No booking wa"}
+{"run": "unknown_tool_error", "seq": 4, "kind": "reply", "text": "Something unexpected went wrong, so I stopped. No booking was made."}

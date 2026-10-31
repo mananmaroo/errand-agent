@@ -1,0 +1,2 @@
+{"run": "confirm_with_nothing_pending", "seq": 0, "kind": "model", "model": "scripted-v1", "input": "yes", "intent": "confirm", "slots": {}, "tokens": "***"}
+{"run": "confirm_with_nothing_pending", "seq": 1, "kind": "reply", "text": "There's nothing pending to confirm."}
