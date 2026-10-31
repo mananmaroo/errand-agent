@@ -24,5 +24,13 @@
 | reschedule_slot_conflict | conflict -> void, re-propose another slot, only moves after new yes | reschedule calls=['2026-11-07T08:00', '2026-11-07T14:00'], final=['2026-11-07T14:00'] | PASS | invariants ok |
 | reschedule_conflict_no_alternative | conflict + no other slot -> clear msg, booking unchanged | final=['2026-11-02T11:00'], phase=FAILED | PASS | invariants ok |
 | ambiguous_booking_asks_which | two plumber bookings -> asks; ID picks the right one | cancelled=['B-0002'] | PASS | invariants ok |
+| memory_persists_across_sessions | area stated in session 1 reused in session 2 without asking | area fact={'value': 'koramangala', 'source': 'stated', 'updated_at': 0.0}, last reply='I can book AquaCare (P-103) on 2026-11-0' | PASS | invariants ok |
+| memory_view_marks_source | view shows stated vs inferred | Here's what I remember: / - area: koramangala [stated] / - preferred technician (electrician): E-201 [inferred | PASS | invariants ok |
+| memory_correction | 'actually I'm in HSR' overwrites stated area, keeps other facts | area=hsr, earliest=10 | PASS | invariants ok |
+| memory_forget_never_reused | forgotten area not used next session -> asks again | area fact=None, last='Which area are you in (Koraman' | PASS | invariants ok |
+| inferred_needs_confirmation | inferred technician asked about, not used silently | last='Last time you used E-201 for this. Want them ', holds after=1 | PASS | invariants ok |
+| inferred_confirmed_becomes_stated | yes -> inferred promoted to stated, proposal uses it | fact={'value': 'E-201', 'source': 'stated', 'updated_at': 5.0}, proposal=E-201 | PASS | invariants ok |
+| forgotten_inferred_not_reinferred | forget technician -> later booking doesn't re-infer it | fact=None, replies=5 | PASS | invariants ok |
+| same_as_last_time | 'same electrician as last time, not before 10' -> E-202, hour>=10 | proposal=Proposal(action='book', provider_id='E-202', slot='2026-11-02T10:00', price=1100, booking_id=None) | PASS | invariants ok |
 
-**24/24 passed**
+**32/32 passed**

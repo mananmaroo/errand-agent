@@ -166,5 +166,61 @@
     "actual": "cancelled=['B-0002']",
     "pass": true,
     "notes": "invariants ok"
+  },
+  {
+    "scenario": "memory_persists_across_sessions",
+    "expected": "area stated in session 1 reused in session 2 without asking",
+    "actual": "area fact={'value': 'koramangala', 'source': 'stated', 'updated_at': 0.0}, last reply='I can book AquaCare (P-103) on 2026-11-0'",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "memory_view_marks_source",
+    "expected": "view shows stated vs inferred",
+    "actual": "Here's what I remember: / - area: koramangala [stated] / - preferred technician (electrician): E-201 [inferred",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "memory_correction",
+    "expected": "'actually I'm in HSR' overwrites stated area, keeps other facts",
+    "actual": "area=hsr, earliest=10",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "memory_forget_never_reused",
+    "expected": "forgotten area not used next session -> asks again",
+    "actual": "area fact=None, last='Which area are you in (Koraman'",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "inferred_needs_confirmation",
+    "expected": "inferred technician asked about, not used silently",
+    "actual": "last='Last time you used E-201 for this. Want them ', holds after=1",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "inferred_confirmed_becomes_stated",
+    "expected": "yes -> inferred promoted to stated, proposal uses it",
+    "actual": "fact={'value': 'E-201', 'source': 'stated', 'updated_at': 5.0}, proposal=E-201",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "forgotten_inferred_not_reinferred",
+    "expected": "forget technician -> later booking doesn't re-infer it",
+    "actual": "fact=None, replies=5",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "same_as_last_time",
+    "expected": "'same electrician as last time, not before 10' -> E-202, hour>=10",
+    "actual": "proposal=Proposal(action='book', provider_id='E-202', slot='2026-11-02T10:00', price=1100, booking_id=None)",
+    "pass": true,
+    "notes": "invariants ok"
   }
 ]

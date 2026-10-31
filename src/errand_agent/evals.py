@@ -19,11 +19,17 @@ from .mocks import Scenario, World
 ROOT = Path(__file__).resolve().parents[2]
 
 
+NEW_SESSION = "<<new_session>>"
+RESTART = "<<restart>>"  # process dies mid-turn; new Agent calls resume()
+
+
 @dataclass
 class Run:
     agent: Agent
     world: World
     replies: list[str]
+    events: list[dict] = field(default_factory=list)
+    agents: list[Agent] = field(default_factory=list)
 
     def calls(self, name: str) -> list[dict]:
         return [a for n, a in self.world.call_log if n == name]
@@ -47,17 +53,30 @@ def play(ev: Eval, tmp: Path) -> Run:
     w = World(ev.scenario())
     if ev.setup:
         ev.setup(w)
-    a = Agent(w, tmp / ev.name, limits=ev.limits, run_id=ev.name, trace_dir=ROOT / "traces")
     trace_file = ROOT / "traces" / f"{ev.name}.jsonl"
     trace_file.unlink(missing_ok=True)
-    return Run(a, w, [a.handle(m) for m in ev.messages])
+
+    def new_agent() -> Agent:
+        return Agent(w, tmp / ev.name, limits=ev.limits, run_id=ev.name, trace_dir=ROOT / "traces")
+
+    a = new_agent()
+    agents, replies = [a], []
+    for m in ev.messages:
+        if m in (NEW_SESSION, RESTART):
+            a = new_agent()
+            agents.append(a)
+            if m == RESTART and (msg := a.resume()):
+                replies.append(msg)
+            continue
+        replies.append(a.handle(m))
+    return Run(a, w, replies, [e for x in agents for e in x.trace.events], agents)
 
 
 # ------------------------------------------------------------------ invariants
 def invariants(r: Run) -> list[str]:
     bad = []
     approval, hold = None, None
-    for e in r.agent.trace.events:
+    for e in r.events:
         if e["kind"] == "approval":
             approval = e
         elif e["kind"] == "approval_void":
@@ -270,6 +289,68 @@ EVALS += [
                     "Which one" in r.replies[0]
                     and [b["id"] for b in r.world.bookings.values() if b["status"] == "cancelled"] == ["B-0002"]),
          setup=_seed_two_plumbers),
+]
+
+
+def _seed_last_electrician(w: World) -> None:
+    w.seed_booking("u1", "E-202", "2026-10-20T10:00", status="completed")
+
+
+def mem(r: Run, key: str):
+    return r.agent.memory.facts.get(key)
+
+
+EVALS += [
+    Eval("memory_persists_across_sessions", "area stated in session 1 reused in session 2 without asking",
+         ["I'm in koramangala, book an electrician this week", "yes", NEW_SESSION,
+          "book a plumber this week"],
+         lambda r: (f"area fact={mem(r, 'area')}, last reply={r.replies[-1][:40]!r}",
+                    mem(r, "area")["source"] == "stated" and "Which area" not in r.replies[-1]
+                    and r.calls("search_providers")[-1]["area"] == "koramangala"),
+         lambda: Scenario(book_sequence=["success"])),
+    Eval("memory_view_marks_source", "view shows stated vs inferred",
+         ["I'm in koramangala, book an electrician this week", "yes", "what do you remember?"],
+         lambda r: (r.replies[-1].replace("\n", " / ")[:110],
+                    "area: koramangala [stated]" in r.replies[-1]
+                    and "preferred technician (electrician): E-201 [inferred]" in r.replies[-1]),
+         lambda: Scenario(book_sequence=["success"])),
+    Eval("memory_correction", "'actually I'm in HSR' overwrites stated area, keeps other facts",
+         ["book an electrician in koramangala this week, not before 10", "actually i'm in hsr",
+          NEW_SESSION, "what do you remember"],
+         lambda r: (f"area={mem(r, 'area')['value']}, earliest={mem(r, 'earliest_hour')['value']}",
+                    mem(r, "area")["value"] == "hsr" and mem(r, "earliest_hour")["value"] == 10)),
+    Eval("memory_forget_never_reused", "forgotten area not used next session -> asks again",
+         ["I'm in koramangala, book a plumber this week", "forget my area", NEW_SESSION,
+          "book an electrician this week"],
+         lambda r: (f"area fact={mem(r, 'area')}, last={r.replies[-1][:30]!r}",
+                    mem(r, "area") is None and "Which area" in r.replies[-1])),
+    Eval("inferred_needs_confirmation", "inferred technician asked about, not used silently",
+         ["book an electrician in koramangala this week", "yes", NEW_SESSION,
+          "book an electrician this week"],
+         lambda r: (f"last={r.replies[-1][:45]!r}, holds after={len(r.calls('hold_slot'))}",
+                    "Want them again?" in r.replies[-1] and r.agent.state.proposal is None),
+         lambda: Scenario(book_sequence=["success"])),
+    Eval("inferred_confirmed_becomes_stated", "yes -> inferred promoted to stated, proposal uses it",
+         ["book an electrician in koramangala this week", "yes", NEW_SESSION,
+          "book an electrician this week", "yes"],
+         lambda r: (f"fact={mem(r, 'preferred_provider:electrician')}, "
+                    f"proposal={r.agent.state.proposal and r.agent.state.proposal.provider_id}",
+                    mem(r, "preferred_provider:electrician")["source"] == "stated"
+                    and r.agent.state.proposal.provider_id == "E-201"),
+         lambda: Scenario(book_sequence=["success"])),
+    Eval("forgotten_inferred_not_reinferred", "forget technician -> later booking doesn't re-infer it",
+         ["book an electrician in koramangala this week", "yes", "forget my preferred electrician",
+          NEW_SESSION, "book an electrician this week", "yes"],
+         lambda r: (f"fact={mem(r, 'preferred_provider:electrician')}, replies={len(r.replies)}",
+                    mem(r, "preferred_provider:electrician") is None
+                    and not any("Want them again" in x for x in r.replies)),
+         lambda: Scenario(book_sequence=["success", "success"])),
+    Eval("same_as_last_time", "'same electrician as last time, not before 10' -> E-202, hour>=10",
+         ["Book the same electrician as last time, but not before 10 a.m., in koramangala this week"],
+         lambda r: (f"proposal={r.agent.state.proposal}",
+                    r.agent.state.proposal.provider_id == "E-202"
+                    and int(r.agent.state.proposal.slot[11:13]) >= 10),
+         setup=_seed_last_electrician),
 ]
 
 

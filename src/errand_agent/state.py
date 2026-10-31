@@ -57,6 +57,8 @@ class WorkflowState:
     result: dict | None = None
     rejected: list[str] = field(default_factory=list)  # "provider@slot" already tried
     attempt: int = 0
+    pending_memory: str | None = None  # inferred memory key awaiting user confirmation
+    memory_asked: list[str] = field(default_factory=list)
 
     def missing(self) -> list[str]:
         return [s for s in REQUIRED_SLOTS if not self.slots.get(s)]

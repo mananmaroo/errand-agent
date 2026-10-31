@@ -6,6 +6,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+from .memory import Memory
 from .mocks import ToolError, ToolTimeout, World
 from .model import ScriptedModel
 from .state import (AWAITING_APPROVAL, COLLECTING, DONE, EXECUTING, FAILED,
@@ -41,6 +42,7 @@ class Agent:
         self.run_id = run_id or uuid.uuid4().hex[:8]
         self.trace = Tracer((trace_dir / f"{self.run_id}.jsonl") if trace_dir else None, self.run_id)
         self.state = WorkflowState.load(store / "state.json")
+        self.memory = Memory(store / "memory.json", world.clock)
         self.turns = 0
 
     # ------------------------------------------------------------- plumbing
@@ -109,6 +111,12 @@ class Agent:
     # ------------------------------------------------------------- policy
     def _step(self, parse) -> str:
         s = self.state
+        if s.pending_memory and parse.intent in ("confirm", "deny"):
+            return self._on_memory_answer(parse.intent == "confirm")
+        if parse.intent == "memory_view":
+            return self.memory.describe()
+        if parse.intent == "forget":
+            return self._forget(parse.slots["forget"])
         if parse.intent == "confirm":
             return self._on_confirm()
         if parse.intent == "deny":
@@ -131,13 +139,75 @@ class Agent:
                 self._void_approval(f"user changed {sorted(changed)}")
                 s.proposal, s.hold, s.rejected = None, None, []
             self._set_phase(COLLECTING, f"slots updated {sorted(changed)}")
+        # Stable facts the user states are remembered as `stated` (correction = overwrite).
+        for k in ("area", "earliest_hour"):
+            if k in parse.slots:
+                self.memory.state(k, parse.slots[k])
         if s.intent in ("cancel", "reschedule"):
             return self._manage()
         if s.intent != "book":
             return "I can book, reschedule or cancel a home service. What do you need?"
+        self._apply_memory()
         if missing := s.missing():
             return QUESTIONS[missing[0]]
+        if q := self._resolve_provider_pref():
+            return q
         return self._propose()
+
+    # ------------------------------------------------------------- memory
+    def _apply_memory(self) -> None:
+        """Fill missing slots from STATED memory only."""
+        s = self.state
+        for k in ("area", "earliest_hour"):
+            if k not in s.slots and (v := self.memory.stated(k)) is not None:
+                s.slots[k] = v
+                self.trace.emit("memory_used", key=k, value=v, source="stated")
+
+    def _resolve_provider_pref(self) -> str | None:
+        s = self.state
+        if "preferred_provider" in s.slots or not s.slots.get("service"):
+            return None
+        key = f"preferred_provider:{s.slots['service']}"
+        if s.slots.get("same_as_last"):  # user explicitly asked: resolve from history
+            hist = sorted((b for b in self._call("list_bookings", user_id=s.user_id)
+                           if b["service"] == s.slots["service"]), key=lambda b: b["slot"])
+            if not hist:
+                s.slots.pop("same_as_last")
+                return "I couldn't find a previous booking for that service. Any provider is fine?"
+            s.slots["preferred_provider"] = hist[-1]["provider_id"]
+            self.memory.state(key, hist[-1]["provider_id"])
+            return None
+        if (v := self.memory.stated(key)) is not None:
+            s.slots["preferred_provider"] = v
+            self.trace.emit("memory_used", key=key, value=v, source="stated")
+            return None
+        if (v := self.memory.inferred(key)) is not None and key not in s.memory_asked:
+            s.pending_memory = key
+            s.memory_asked.append(key)
+            self._save()
+            return f"Last time you used {v} for this. Want them again? (yes/no)"
+        return None
+
+    def _on_memory_answer(self, yes: bool) -> str:
+        s = self.state
+        key, s.pending_memory = s.pending_memory, None
+        v = self.memory.inferred(key)
+        self.trace.emit("memory_confirm", key=key, value=v, accepted=yes)
+        if yes and v is not None:
+            self.memory.state(key, v)  # inferred -> stated only on explicit confirmation
+            s.slots["preferred_provider"] = v
+        return self._step(type("P", (), {"intent": None, "slots": {}})())
+
+    def _forget(self, key: str) -> str:
+        s = self.state
+        self.memory.forget(key)
+        if s.slots.pop(key, None) is not None and s.proposal:
+            self._void_approval(f"forgot {key}")
+            s.proposal, s.hold = None, None
+            s.phase = COLLECTING
+        self._save()  # BUG-2 fix: forget must reach persisted workflow state too
+        self.trace.emit("memory_forget", key=key)
+        return f"Done — I've forgotten your {key.replace('_', ' ')} and won't use it again."
 
     def _candidates(self) -> list[tuple[dict, str]]:
         s = self.state.slots
@@ -145,6 +215,8 @@ class Agent:
                            date_range=tuple(s["date_range"]))
         out = []
         for p in sorted(found, key=lambda p: (-p["rating"], p["price"])):
+            if s.get("preferred_provider") and p["id"] != s["preferred_provider"]:
+                continue
             if s.get("budget") and p["price"] > s["budget"]:
                 continue
             for slot in p["free_slots"]:
@@ -246,6 +318,8 @@ class Agent:
     def _confirmed(self, st: dict) -> str:
         self.state.result = {"booking_id": st["booking_id"]}
         a = self.state.approval
+        if self.memory.infer(f"preferred_provider:{self.state.slots['service']}", a.provider_id):
+            self.trace.emit("memory_inferred", key="preferred_provider", value=a.provider_id)
         return self._finish(DONE, f"Booked ✅ {a.provider_id} on {a.slot.replace('T', ' at ')} "
                                   f"for ₹{a.price}. Booking ID {st['booking_id']}.")
 

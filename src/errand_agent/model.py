@@ -36,6 +36,15 @@ class ScriptedModel:
         if re.fullmatch(r"(no|n|nope|cancel that|don'?t)[.! ]*", t):
             p.intent = "deny"
             return p
+        if re.search(r"what do you (remember|know)|my (saved )?preferences", t):
+            p.intent = "memory_view"
+            return p
+        if m := re.search(r"\bforget (?:my |the )?(area|earliest time|.*technician|.*electrician|.*plumber|.*provider)", t):
+            p.intent = "forget"
+            w = m.group(1)
+            p.slots["forget"] = ("area" if w == "area" else "earliest_hour" if "earliest" in w
+                                 else "preferred_provider")
+            return p
         if "move" in t or "reschedule" in t:
             p.intent = "reschedule"
         elif re.search(r"\bcancel\b", t):
@@ -62,6 +71,8 @@ class ScriptedModel:
             p.slots["earliest_hour"] = int(m.group(1))
         if m := re.search(r"\bb-(\d{4})\b", t):
             p.slots["booking_id"] = f"B-{m.group(1)}"
+        if re.search(r"\b(i'?m in|i live in|i'?ve moved to|i moved to)\b", t) and "area" in p.slots:
+            p.slots["remember_area"] = True
         if "same" in t and "last time" in t:
             p.slots["same_as_last"] = True
         return p
