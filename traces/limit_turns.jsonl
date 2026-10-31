@@ -1,5 +1,5 @@
 {"run": "limit_turns", "seq": 0, "kind": "model", "model": "scripted-v1", "input": "hi", "intent": null, "slots": {}, "tokens": "***"}
-{"run": "limit_turns", "seq": 1, "kind": "reply", "text": "I can book a home service for you. What do you need?"}
+{"run": "limit_turns", "seq": 1, "kind": "reply", "text": "I can book, reschedule or cancel a home service. What do you need?"}
 {"run": "limit_turns", "seq": 2, "kind": "model", "model": "scripted-v1", "input": "hi", "intent": null, "slots": {}, "tokens": "***"}
-{"run": "limit_turns", "seq": 3, "kind": "reply", "text": "I can book a home service for you. What do you need?"}
+{"run": "limit_turns", "seq": 3, "kind": "reply", "text": "I can book, reschedule or cancel a home service. What do you need?"}
 {"run": "limit_turns", "seq": 4, "kind": "state", "frm": "COLLECTING", "to": "FAILED", "why": "I've hit my conversation limit, so I've stopped here. Nothin"}

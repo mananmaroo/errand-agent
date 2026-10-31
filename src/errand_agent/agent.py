@@ -117,6 +117,10 @@ class Agent:
             self._set_phase(COLLECTING, "user declined")
             return "No problem — nothing booked. Want a different time or provider?"
 
+        # A new request after a finished one starts a fresh workflow (no stale slots).
+        if parse.intent in ("book", "cancel", "reschedule") and s.phase in (DONE, FAILED):
+            self.trace.emit("reset", prev_phase=s.phase)
+            self.state = s = WorkflowState(user_id=s.user_id)
         if parse.intent and parse.intent != s.intent:
             s.intent = parse.intent
         # A correction to one detail keeps everything else; it voids any proposal.
@@ -127,8 +131,10 @@ class Agent:
                 self._void_approval(f"user changed {sorted(changed)}")
                 s.proposal, s.hold, s.rejected = None, None, []
             self._set_phase(COLLECTING, f"slots updated {sorted(changed)}")
+        if s.intent in ("cancel", "reschedule"):
+            return self._manage()
         if s.intent != "book":
-            return "I can book a home service for you. What do you need?"
+            return "I can book, reschedule or cancel a home service. What do you need?"
         if missing := s.missing():
             return QUESTIONS[missing[0]]
         return self._propose()
@@ -175,12 +181,17 @@ class Agent:
     def _on_confirm(self) -> str:
         s = self.state
         if s.phase == DONE and s.result:  # repeated "yes" after success: no-op
-            return f"Already booked — {s.result['booking_id']}. Nothing new was booked."
+            return f"Already done — {s.result['booking_id']}. Nothing new was changed."
         if s.phase != AWAITING_APPROVAL or not s.proposal:
             return "There's nothing pending to confirm."
         p = s.proposal
-        s.approval = Approval(p.action, p.provider_id, p.slot, p.price, self.world.clock.now())
+        s.approval = Approval(p.action, p.provider_id, p.slot, p.price, self.world.clock.now(),
+                              p.booking_id)
         self.trace.emit("approval", **vars(s.approval))
+        if p.action == "cancel":
+            return self._execute_cancel()
+        if p.action == "reschedule":
+            return self._execute_reschedule()
         return self._execute_book()
 
     def _approval_valid(self, provider_id: str, slot: str, price: int) -> bool:
@@ -263,3 +274,104 @@ class Agent:
         s.hold, s.idempotency_key = None, None
         self.trace.emit("slot_lost", code=code)
         return "That slot was just taken, so nothing was booked. " + self._propose()
+
+    # ------------------------------------------------------------- cancel / reschedule
+    def _manage(self) -> str:
+        s = self.state
+        if s.intent == "reschedule" and not s.slots.get("date_range"):
+            return "Which day should I move it to?"
+        if s.proposal:  # e.g. re-entry after a correction already re-proposed
+            return self._ask_approval()
+        ups = [b for b in self._call("list_bookings", user_id=s.user_id) if b["status"] == "upcoming"]
+        if bid := s.slots.get("booking_id"):
+            ups = [b for b in ups if b["id"] == bid]
+        elif svc := s.slots.get("service"):
+            ups = [b for b in ups if b["service"] == svc]
+        if not ups:
+            return self._finish(FAILED, "I couldn't find a matching upcoming booking, so nothing changed.")
+        if len(ups) > 1:
+            opts = ", ".join(f"{b['id']} ({b['provider_id']} on {b['slot'].replace('T', ' ')})" for b in ups)
+            return f"You have more than one matching booking: {opts}. Which one?"
+        b = ups[0]
+        s.slots["booking_id"] = b["id"]
+        if s.intent == "cancel":
+            s.proposal = Proposal("cancel", b["provider_id"], b["slot"], b["price"], b["id"])
+            self._set_phase(AWAITING_APPROVAL, "cancel proposal")
+            return (f"Cancel booking {b['id']} with {b['provider_id']} on "
+                    f"{b['slot'].replace('T', ' at ')}? Reply 'yes' to confirm.")
+        return self._propose_reschedule(b)
+
+    def _propose_reschedule(self, b: dict) -> str:
+        s = self.state
+        start, end = s.slots["date_range"]
+        prov = self._call("get_provider", provider_id=b["provider_id"])  # same technician
+        for slot in prov["free_slots"]:
+            h = int(slot[11:13])
+            if not (start <= slot[:10] <= end) or f"{b['provider_id']}@{slot}" in s.rejected:
+                continue
+            if (s.slots.get("earliest_hour") and h < s.slots["earliest_hour"]) or \
+               (s.slots.get("latest_hour") is not None and h > s.slots["latest_hour"]):
+                continue
+            s.proposal = Proposal("reschedule", b["provider_id"], slot, b["price"], b["id"])
+            self._set_phase(AWAITING_APPROVAL, "reschedule proposal")
+            return (f"Move {b['id']} ({b['provider_id']}) from {b['slot'].replace('T', ' at ')} to "
+                    f"{slot.replace('T', ' at ')}, same price ₹{b['price']}? Reply 'yes' to confirm.")
+        return self._finish(FAILED, f"{b['provider_id']} has no free slot in that window, "
+                                    "so your booking is unchanged.")
+
+    def _gate(self) -> None:
+        """Code-level approval check for any side-effecting call."""
+        a, p = self.state.approval, self.state.proposal
+        if not (a and p and a.matches(p)):
+            raise RuntimeError("approval gate: no valid approval for proposal")
+
+    def _key(self, action: str) -> str:
+        a = self.state.approval
+        return hashlib.sha256(f"{self.state.user_id}|{action}|{a.booking_id}|{a.slot}|"
+                              f"{a.approved_at}".encode()).hexdigest()[:16]
+
+    def _booking(self, bid: str) -> dict | None:
+        return next((b for b in self._call("list_bookings", user_id=self.state.user_id)
+                     if b["id"] == bid), None)
+
+    def _execute_cancel(self) -> str:
+        from .mocks import Transient503
+        s = self.state
+        self._gate()
+        s.idempotency_key = self._key("cancel")
+        self._set_phase(EXECUTING, "approved; cancelling")
+        for attempt in range(1, 4):  # bounded retries on transient errors, same key
+            try:
+                self._call("cancel", booking_id=s.approval.booking_id, idempotency_key=s.idempotency_key)
+                break
+            except Transient503:
+                self.trace.emit("retry", action="cancel", attempt=attempt + 1)
+        b = self._booking(s.approval.booking_id)  # verify before claiming success
+        if b and b["status"] == "cancelled":
+            s.result = {"booking_id": b["id"]}
+            return self._finish(DONE, f"Cancelled ✅ booking {b['id']}.")
+        return self._finish(FAILED, "The provider kept failing, so I couldn't cancel. "
+                                    "Your booking is still active.")
+
+    def _execute_reschedule(self) -> str:
+        s = self.state
+        self._gate()
+        s.idempotency_key = self._key("reschedule")
+        self._set_phase(EXECUTING, "approved; rescheduling")
+        try:
+            self._call("reschedule", booking_id=s.approval.booking_id, new_slot=s.approval.slot,
+                       idempotency_key=s.idempotency_key)
+        except ToolError as e:
+            if e.code != "slot_conflict":
+                raise
+            s.rejected.append(f"{s.proposal.provider_id}@{s.proposal.slot}")
+            self._void_approval("slot_conflict")
+            s.proposal, s.idempotency_key = None, None
+            b = self._booking(s.slots["booking_id"])
+            return "That slot conflicted, so nothing changed. " + self._propose_reschedule(b)
+        b = self._booking(s.approval.booking_id)
+        if b and b["slot"] == s.approval.slot:
+            s.result = {"booking_id": b["id"]}
+            return self._finish(DONE, f"Rescheduled ✅ {b['id']} to {b['slot'].replace('T', ' at ')}.")
+        return self._finish(FAILED, "I couldn't verify the reschedule, so treat it as not done. "
+                                    "Your original slot is unchanged.")

@@ -68,6 +68,12 @@ def invariants(r: Run) -> list[str]:
             if not (approval and hold and approval["provider_id"] == hold["provider_id"]
                     and approval["slot"] == hold["slot"] and approval["price"] == hold["quoted_price"]):
                 bad.append("INV-1 book without valid approval")
+        elif e["kind"] == "tool" and e["name"] in ("cancel", "reschedule"):
+            ok = (approval and approval["action"] == e["name"]
+                  and approval["booking_id"] == e["args"]["booking_id"]
+                  and (e["name"] == "cancel" or approval["slot"] == e["args"]["new_slot"]))
+            if not ok:
+                bad.append(f"INV-1 {e['name']} without valid approval")
     dupes = Counter((b["provider_id"], b["slot"]) for b in r.upcoming())
     if any(n > 1 for n in dupes.values()):
         bad.append("INV-2 duplicate booking")
@@ -196,6 +202,74 @@ EVALS: list[Eval] = [
          lambda r: (f"reply={r.replies[-1][:45]!r}", "unexpected" in r.replies[-1]
                     and r.agent.state.phase == "FAILED"),
          setup=lambda w: setattr(w, "search_providers", _raise)),
+]
+
+
+def _seed_ac(w: World) -> None:
+    w.seed_booking("u1", "A-301", w.providers["A-301"]["free_slots"][0], status="upcoming")
+
+
+def _seed_ac_conflict(w: World) -> None:
+    _seed_ac(w)
+    w.providers["A-301"]["free_slots"].append("2026-11-07T14:00")  # a fallback slot
+    _conflict_first_sat(w)
+
+
+def _seed_ac_conflict_only_slot(w: World) -> None:
+    _seed_ac(w)
+    _conflict_first_sat(w)
+
+
+def _conflict_first_sat(w: World) -> None:
+    sat = [x for x in w.providers["A-301"]["free_slots"] if x.startswith("2026-11-07")]
+    w.scenario.conflict_slots.add(sat[0])
+
+
+def _seed_two_plumbers(w: World) -> None:
+    w.seed_booking("u1", "P-101", w.providers["P-101"]["free_slots"][0], status="upcoming")
+    w.seed_booking("u1", "P-102", w.providers["P-102"]["free_slots"][0], status="upcoming")
+
+
+EVALS += [
+    Eval("cancel_transient_503_retry", "503 then retry with SAME key -> cancelled, verified",
+         ["cancel my AC servicing", "yes"],
+         lambda r: (f"cancel keys={[c['idempotency_key'] for c in r.calls('cancel')]}, "
+                    f"status={[b['status'] for b in r.world.bookings.values()]}",
+                    len(r.calls("cancel")) == 2 and len({c["idempotency_key"] for c in r.calls("cancel")}) == 1
+                    and all(b["status"] == "cancelled" for b in r.world.bookings.values())
+                    and "Cancelled" in r.replies[-1]),
+         setup=_seed_ac),
+    Eval("cancel_requires_approval", "no cancel call without explicit yes",
+         ["cancel my AC servicing"],
+         lambda r: (f"cancel calls={len(r.calls('cancel'))}", len(r.calls("cancel")) == 0),
+         setup=_seed_ac),
+    Eval("reschedule_same_provider", "moved to Saturday, same provider, verified",
+         ["Move my AC servicing to Saturday.", "yes"],
+         lambda r: (f"bookings={[(b['provider_id'], b['slot']) for b in r.upcoming()]}",
+                    len(r.upcoming()) == 1 and r.upcoming()[0]["provider_id"] == "A-301"
+                    and r.upcoming()[0]["slot"].startswith("2026-11-07")),
+         setup=_seed_ac),
+    Eval("reschedule_slot_conflict", "conflict -> void, re-propose another slot, only moves after new yes",
+         ["Move my AC servicing to Saturday.", "yes", "yes"],
+         lambda r: (f"reschedule calls={[c['new_slot'] for c in r.calls('reschedule')]}, "
+                    f"final={[b['slot'] for b in r.upcoming()]}",
+                    len(r.calls("reschedule")) == 2
+                    and r.calls("reschedule")[0]["new_slot"] != r.calls("reschedule")[1]["new_slot"]
+                    and "conflicted" in r.replies[1]
+                    and r.upcoming()[0]["slot"] == r.calls("reschedule")[1]["new_slot"]),
+         setup=_seed_ac_conflict),
+    Eval("reschedule_conflict_no_alternative", "conflict + no other slot -> clear msg, booking unchanged",
+         ["Move my AC servicing to Saturday.", "yes"],
+         lambda r: (f"final={[b['slot'] for b in r.upcoming()]}, phase={r.agent.state.phase}",
+                    r.upcoming()[0]["slot"] == "2026-11-02T11:00" and "unchanged" in r.replies[-1]
+                    and r.agent.state.phase == "FAILED"),
+         setup=_seed_ac_conflict_only_slot),
+    Eval("ambiguous_booking_asks_which", "two plumber bookings -> asks; ID picks the right one",
+         ["cancel my plumber booking", "B-0002", "yes"],
+         lambda r: (f"cancelled={[b['id'] for b in r.world.bookings.values() if b['status'] == 'cancelled']}",
+                    "Which one" in r.replies[0]
+                    and [b["id"] for b in r.world.bookings.values() if b["status"] == "cancelled"] == ["B-0002"]),
+         setup=_seed_two_plumbers),
 ]
 
 

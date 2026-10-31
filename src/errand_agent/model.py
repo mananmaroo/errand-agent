@@ -60,6 +60,8 @@ class ScriptedModel:
             p.slots["latest_hour"] = 11
         if m := re.search(r"not before (\d{1,2})", t):
             p.slots["earliest_hour"] = int(m.group(1))
+        if m := re.search(r"\bb-(\d{4})\b", t):
+            p.slots["booking_id"] = f"B-{m.group(1)}"
         if "same" in t and "last time" in t:
             p.slots["same_as_last"] = True
         return p

@@ -129,6 +129,8 @@ class World:
             "service": p["service"], "slot": slot, "status": status,
             "price": p["price"],
         }
+        if status == "upcoming":
+            self.taken.add((provider_id, slot))
         return bid
 
     def _log(self, name: str, **args: Any) -> None:
@@ -152,7 +154,9 @@ class World:
         self._log("get_provider", provider_id=provider_id)
         if provider_id not in self.providers:
             raise ToolError("not_found", provider_id)
-        return dict(self.providers[provider_id])
+        p = dict(self.providers[provider_id])
+        p["free_slots"] = [x for x in p["free_slots"] if (provider_id, x) not in self.taken]
+        return p
 
     def list_bookings(self, user_id: str) -> list[dict]:
         self._log("list_bookings", user_id=user_id)

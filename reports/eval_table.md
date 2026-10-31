@@ -18,5 +18,11 @@
 | limit_tool_calls | tool-call cap -> clear stop message, no booking | reply='I stopped because I hit a safety limit (tool-call ', phase=FAILED | PASS | invariants ok |
 | limit_turns | turn cap -> clear stop message | last="I've hit my conversation limit, so I've " | PASS | invariants ok |
 | unknown_tool_error | unexpected exception -> clear message, FAILED, no booking | reply='Something unexpected went wrong, so I stopped' | PASS | invariants ok |
+| cancel_transient_503_retry | 503 then retry with SAME key -> cancelled, verified | cancel keys=['f16164e775e4b93b', 'f16164e775e4b93b'], status=['cancelled'] | PASS | invariants ok |
+| cancel_requires_approval | no cancel call without explicit yes | cancel calls=0 | PASS | invariants ok |
+| reschedule_same_provider | moved to Saturday, same provider, verified | bookings=[('A-301', '2026-11-07T08:00')] | PASS | invariants ok |
+| reschedule_slot_conflict | conflict -> void, re-propose another slot, only moves after new yes | reschedule calls=['2026-11-07T08:00', '2026-11-07T14:00'], final=['2026-11-07T14:00'] | PASS | invariants ok |
+| reschedule_conflict_no_alternative | conflict + no other slot -> clear msg, booking unchanged | final=['2026-11-02T11:00'], phase=FAILED | PASS | invariants ok |
+| ambiguous_booking_asks_which | two plumber bookings -> asks; ID picks the right one | cancelled=['B-0002'] | PASS | invariants ok |
 
-**18/18 passed**
+**24/24 passed**

@@ -124,5 +124,47 @@
     "actual": "reply='Something unexpected went wrong, so I stopped'",
     "pass": true,
     "notes": "invariants ok"
+  },
+  {
+    "scenario": "cancel_transient_503_retry",
+    "expected": "503 then retry with SAME key -> cancelled, verified",
+    "actual": "cancel keys=['f16164e775e4b93b', 'f16164e775e4b93b'], status=['cancelled']",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "cancel_requires_approval",
+    "expected": "no cancel call without explicit yes",
+    "actual": "cancel calls=0",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "reschedule_same_provider",
+    "expected": "moved to Saturday, same provider, verified",
+    "actual": "bookings=[('A-301', '2026-11-07T08:00')]",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "reschedule_slot_conflict",
+    "expected": "conflict -> void, re-propose another slot, only moves after new yes",
+    "actual": "reschedule calls=['2026-11-07T08:00', '2026-11-07T14:00'], final=['2026-11-07T14:00']",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "reschedule_conflict_no_alternative",
+    "expected": "conflict + no other slot -> clear msg, booking unchanged",
+    "actual": "final=['2026-11-02T11:00'], phase=FAILED",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "ambiguous_booking_asks_which",
+    "expected": "two plumber bookings -> asks; ID picks the right one",
+    "actual": "cancelled=['B-0002']",
+    "pass": true,
+    "notes": "invariants ok"
   }
 ]
