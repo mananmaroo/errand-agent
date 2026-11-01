@@ -222,5 +222,26 @@
     "actual": "proposal=Proposal(action='book', provider_id='E-202', slot='2026-11-02T10:00', price=1100, booking_id=None)",
     "pass": true,
     "notes": "invariants ok"
+  },
+  {
+    "scenario": "restart_after_server_committed",
+    "expected": "crash after commit -> resume finds booked, 0 extra book calls",
+    "actual": "book calls=1, bookings=1, resume reply='Booked \u2705 E-201 on 2026-11-02 a'",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "restart_before_commit_in_window",
+    "expected": "crash before commit, resume <30s -> same-key retry, 1 booking",
+    "actual": "book keys=['e297cefa91c12f74', 'e297cefa91c12f74'], bookings=1",
+    "pass": true,
+    "notes": "invariants ok"
+  },
+  {
+    "scenario": "restart_before_commit_after_window",
+    "expected": "crash, down 120s -> no retry, voided, asks re-approval",
+    "actual": "book calls=1, phase=AWAITING_APPROVAL",
+    "pass": true,
+    "notes": "invariants ok"
   }
 ]

@@ -32,5 +32,8 @@
 | inferred_confirmed_becomes_stated | yes -> inferred promoted to stated, proposal uses it | fact={'value': 'E-201', 'source': 'stated', 'updated_at': 5.0}, proposal=E-201 | PASS | invariants ok |
 | forgotten_inferred_not_reinferred | forget technician -> later booking doesn't re-infer it | fact=None, replies=5 | PASS | invariants ok |
 | same_as_last_time | 'same electrician as last time, not before 10' -> E-202, hour>=10 | proposal=Proposal(action='book', provider_id='E-202', slot='2026-11-02T10:00', price=1100, booking_id=None) | PASS | invariants ok |
+| restart_after_server_committed | crash after commit -> resume finds booked, 0 extra book calls | book calls=1, bookings=1, resume reply='Booked ✅ E-201 on 2026-11-02 a' | PASS | invariants ok |
+| restart_before_commit_in_window | crash before commit, resume <30s -> same-key retry, 1 booking | book keys=['e297cefa91c12f74', 'e297cefa91c12f74'], bookings=1 | PASS | invariants ok |
+| restart_before_commit_after_window | crash, down 120s -> no retry, voided, asks re-approval | book calls=1, phase=AWAITING_APPROVAL | PASS | invariants ok |
 
-**32/32 passed**
+**35/35 passed**

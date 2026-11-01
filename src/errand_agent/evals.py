@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Callable
 
 from .agent import Agent, Limits
-from .mocks import Scenario, World
+from .mocks import ProcessCrash, Scenario, World
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -62,13 +62,19 @@ def play(ev: Eval, tmp: Path) -> Run:
     a = new_agent()
     agents, replies = [a], []
     for m in ev.messages:
+        if m.startswith("<<advance:"):  # simulated downtime
+            w.clock.advance(float(m[10:-2]))
+            continue
         if m in (NEW_SESSION, RESTART):
             a = new_agent()
             agents.append(a)
             if m == RESTART and (msg := a.resume()):
                 replies.append(msg)
             continue
-        replies.append(a.handle(m))
+        try:
+            replies.append(a.handle(m))
+        except ProcessCrash:
+            a.trace.emit("crash")  # process died: no reply was ever sent
     return Run(a, w, replies, [e for x in agents for e in x.trace.events], agents)
 
 
@@ -351,6 +357,29 @@ EVALS += [
                     r.agent.state.proposal.provider_id == "E-202"
                     and int(r.agent.state.proposal.slot[11:13]) >= 10),
          setup=_seed_last_electrician),
+]
+
+
+EVALS += [
+    Eval("restart_after_server_committed", "crash after commit -> resume finds booked, 0 extra book calls",
+         [ELEC, "yes", RESTART, "yes"],
+         lambda r: (f"book calls={len(r.calls('book'))}, bookings={n_booked(r)}, "
+                    f"resume reply={r.replies[1][:30]!r}",
+                    len(r.calls("book")) == 1 and n_booked(r) == 1 and r.replies[1].startswith("Booked")
+                    and "Already done" in r.replies[-1]),
+         lambda: Scenario(book_sequence=["success"], crash_on_book="after_commit")),
+    Eval("restart_before_commit_in_window", "crash before commit, resume <30s -> same-key retry, 1 booking",
+         [ELEC, "yes", RESTART],
+         lambda r: (f"book keys={[c['idempotency_key'] for c in r.calls('book')]}, bookings={n_booked(r)}",
+                    len(r.calls("book")) == 2 and len({c["idempotency_key"] for c in r.calls("book")}) == 1
+                    and n_booked(r) == 1),
+         lambda: Scenario(book_sequence=["success"], crash_on_book="before_commit")),
+    Eval("restart_before_commit_after_window", "crash, down 120s -> no retry, voided, asks re-approval",
+         [ELEC, "yes", "<<advance:120>>", RESTART],
+         lambda r: (f"book calls={len(r.calls('book'))}, phase={r.agent.state.phase}",
+                    len(r.calls("book")) == 1 and n_booked(r) == 0
+                    and r.agent.state.phase == "AWAITING_APPROVAL" and r.agent.state.approval is None),
+         lambda: Scenario(book_sequence=["success"], crash_on_book="before_commit")),
 ]
 
 

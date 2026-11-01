@@ -95,8 +95,17 @@ class Agent:
         """Called on startup. If we crashed mid-booking, reconcile with the server."""
         if self.state.phase == EXECUTING and self.state.idempotency_key:
             self._calls, self._turn_start = 0, self.world.clock.now()
-            self.trace.emit("resume", key=self.state.idempotency_key)
-            return self._reconcile_after_uncertainty()
+            self.trace.emit("resume", key=self.state.idempotency_key,
+                            action=self.state.proposal and self.state.proposal.action)
+            try:
+                if self.state.proposal and self.state.proposal.action == "cancel":
+                    return self._execute_cancel()  # same deterministic key -> idempotent
+                if self.state.proposal and self.state.proposal.action == "reschedule":
+                    return self._execute_reschedule()
+                return self._reconcile_after_uncertainty()
+            except BudgetExceeded as e:
+                return self._finish(FAILED, f"I stopped because I hit a safety limit ({e}). "
+                                            + self._safe_status())
         return None
 
     def _safe_status(self) -> str:

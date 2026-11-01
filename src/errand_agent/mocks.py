@@ -26,6 +26,10 @@ class ToolTimeout(Exception):
     """The call timed out; the side effect may or may not have happened."""
 
 
+class ProcessCrash(BaseException):
+    """Simulated process death (kill -9). BaseException so the agent can't swallow it."""
+
+
 class Transient503(Exception):
     """Transient server error; a retry should succeed."""
 
@@ -46,6 +50,8 @@ class Scenario:
     unavailable_slots: set[tuple[str, str]] = field(default_factory=set)
     # slots that reschedule rejects with slot_conflict
     conflict_slots: set[str] = field(default_factory=set)
+    # One-shot crash during book(): "after_commit" (server booked) | "before_commit"
+    crash_on_book: str | None = None
 
 
 INJECTION_REVIEW = (
@@ -200,6 +206,9 @@ class World:
             self.ledger[idempotency_key] = {"status": "failed", "reason": "hold_expired"}
             raise ToolError("hold_expired", hold_id)
         # A retry of a previously timed-out key is a fresh attempt (outcome already consumed).
+        if self.scenario.crash_on_book == "before_commit":
+            self.scenario.crash_on_book = None
+            raise ProcessCrash("died before server committed")
         outcome = "success" if prior else self._next_book_outcome(idempotency_key)
         if outcome == "slot_taken":
             self.ledger[idempotency_key] = {"status": "failed", "reason": "slot_taken"}
@@ -209,6 +218,9 @@ class World:
             raise ToolTimeout("book timed out")
         bid = self._commit_booking(hold, user_id)
         self.ledger[idempotency_key] = {"status": "booked", "booking_id": bid}
+        if self.scenario.crash_on_book == "after_commit":
+            self.scenario.crash_on_book = None
+            raise ProcessCrash("died after server committed, before reply")
         if outcome == "timeout_booked":
             raise ToolTimeout("book timed out")
         return {"booking_id": bid}
