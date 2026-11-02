@@ -23,7 +23,7 @@ def fmt(e: dict) -> str | None:
         args = ", ".join(f"{a}={v}" for a, v in e["args"].items())
         out = e["result"] if e["ok"] else f"✗ {e['error']}"
         if isinstance(out, dict) and "reviews" in out:  # show the redaction, not the bulk
-            out = {k: out[k] for k in ("id", "name", "price", "rating", "reviews")}
+            out = {k: out[k] for k in ("id", "reviews", "rating", "price")}
         s = f"TOOL   {e['name']}({args}) → {json.dumps(out)[:90]}  [{e['latency_ms']}ms]"
     elif k == "approval":
         s = f"APPROVE {e['action']} {e['provider_id']} {e['slot']} ₹{e['price']}"
