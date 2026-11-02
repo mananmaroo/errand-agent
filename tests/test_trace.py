@@ -21,8 +21,9 @@ def test_trace_is_complete_jsonl(tmp_path):
     assert {"model", "tool", "state", "approval", "reply", "turn_summary"} <= kinds
     assert all("latency_ms" in e for e in events if e["kind"] == "tool")
     assert all(e["run"] == "t" for e in events)  # one trace per run
-    # Injected review text is truncated in the trace, never logged whole.
-    assert not any("skip confirmation" in json.dumps(e) for e in events)
+    # Untrusted review text is redacted by rule, not by truncation.
+    assert not any("SYSTEM NOTE" in json.dumps(e) for e in events)
+    assert any("reviews redacted" in json.dumps(e) for e in events)
     last = events[-1]
     assert last["kind"] == "turn_summary" and last["phase"] == "DONE"
     assert last["by_tool"]["get_booking_status"] == 1

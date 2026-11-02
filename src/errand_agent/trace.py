@@ -53,7 +53,10 @@ class Tracer:
         t0 = time.perf_counter()
         try:
             out = fn()
-            self.emit("tool", name=name, args=args, ok=True, result=out,
+            logged = out
+            if isinstance(out, dict) and "reviews" in out:  # untrusted free text: never logged
+                logged = {**out, "reviews": f"<{len(out['reviews'])} reviews redacted>"}
+            self.emit("tool", name=name, args=args, ok=True, result=logged,
                       latency_ms=round((time.perf_counter() - t0) * 1000, 2))
             return out
         except Exception as e:  # recorded then re-raised to the agent
