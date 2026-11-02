@@ -2,12 +2,14 @@
 {"run": "cancel_transient_503_retry", "seq": 1, "kind": "tool", "name": "list_bookings", "args": {"user_id": "u1"}, "ok": true, "result": [{"id": "B-0001", "user_id": "u1", "provider_id": "A-301", "service": "ac_servicing", "slot": "2026-11-02T11:00", "status": "upcoming", "price": 1500}], "latency_ms": 0.0}
 {"run": "cancel_transient_503_retry", "seq": 2, "kind": "state", "frm": "COLLECTING", "to": "AWAITING_APPROVAL", "why": "cancel proposal"}
 {"run": "cancel_transient_503_retry", "seq": 3, "kind": "reply", "text": "Cancel booking B-0001 with A-301 on 2026-11-02 at 11:00? Reply 'yes' to confirm."}
-{"run": "cancel_transient_503_retry", "seq": 4, "kind": "model", "model": "scripted-v1", "input": "yes", "intent": "confirm", "slots": {}, "tokens": "***"}
-{"run": "cancel_transient_503_retry", "seq": 5, "kind": "approval", "action": "cancel", "provider_id": "A-301", "slot": "2026-11-02T11:00", "price": 1500, "approved_at": 1.0, "booking_id": "B-0001"}
-{"run": "cancel_transient_503_retry", "seq": 6, "kind": "state", "frm": "AWAITING_APPROVAL", "to": "EXECUTING", "why": "approved; cancelling"}
-{"run": "cancel_transient_503_retry", "seq": 7, "kind": "tool", "name": "cancel", "args": {"booking_id": "B-0001", "idempotency_key": "f16164e775e4b93b"}, "ok": false, "error": "Transient503: service unavailable", "latency_ms": 0.01}
-{"run": "cancel_transient_503_retry", "seq": 8, "kind": "retry", "action": "cancel", "attempt": 2}
-{"run": "cancel_transient_503_retry", "seq": 9, "kind": "tool", "name": "cancel", "args": {"booking_id": "B-0001", "idempotency_key": "f16164e775e4b93b"}, "ok": true, "result": {"status": "cancelled"}, "latency_ms": 0.01}
-{"run": "cancel_transient_503_retry", "seq": 10, "kind": "tool", "name": "list_bookings", "args": {"user_id": "u1"}, "ok": true, "result": [{"id": "B-0001", "user_id": "u1", "provider_id": "A-301", "service": "ac_servicing", "slot": "2026-11-02T11:00", "status": "cancelled", "price": 1500}], "latency_ms": 0.01}
-{"run": "cancel_transient_503_retry", "seq": 11, "kind": "state", "frm": "EXECUTING", "to": "DONE", "why": "Cancelled \u2705 booking B-0001."}
-{"run": "cancel_transient_503_retry", "seq": 12, "kind": "reply", "text": "Cancelled \u2705 booking B-0001."}
+{"run": "cancel_transient_503_retry", "seq": 4, "kind": "turn_summary", "turn": 1, "phase": "AWAITING_APPROVAL", "tool_calls": 1, "tool_errors": 0, "by_tool": {"list_bookings": 1}, "tool_latency_ms": 0.0, "tokens": "***", "cost_usd": 0.0}
+{"run": "cancel_transient_503_retry", "seq": 5, "kind": "model", "model": "scripted-v1", "input": "yes", "intent": "confirm", "slots": {}, "tokens": "***"}
+{"run": "cancel_transient_503_retry", "seq": 6, "kind": "approval", "action": "cancel", "provider_id": "A-301", "slot": "2026-11-02T11:00", "price": 1500, "approved_at": 1.0, "booking_id": "B-0001"}
+{"run": "cancel_transient_503_retry", "seq": 7, "kind": "state", "frm": "AWAITING_APPROVAL", "to": "EXECUTING", "why": "approved; cancelling"}
+{"run": "cancel_transient_503_retry", "seq": 8, "kind": "tool", "name": "cancel", "args": {"booking_id": "B-0001", "idempotency_key": "f16164e775e4b93b"}, "ok": false, "error": "Transient503: service unavailable", "latency_ms": 0.01}
+{"run": "cancel_transient_503_retry", "seq": 9, "kind": "retry", "action": "cancel", "attempt": 2}
+{"run": "cancel_transient_503_retry", "seq": 10, "kind": "tool", "name": "cancel", "args": {"booking_id": "B-0001", "idempotency_key": "f16164e775e4b93b"}, "ok": true, "result": {"status": "cancelled"}, "latency_ms": 0.01}
+{"run": "cancel_transient_503_retry", "seq": 11, "kind": "tool", "name": "list_bookings", "args": {"user_id": "u1"}, "ok": true, "result": [{"id": "B-0001", "user_id": "u1", "provider_id": "A-301", "service": "ac_servicing", "slot": "2026-11-02T11:00", "status": "cancelled", "price": 1500}], "latency_ms": 0.0}
+{"run": "cancel_transient_503_retry", "seq": 12, "kind": "state", "frm": "EXECUTING", "to": "DONE", "why": "Cancelled \u2705 booking B-0001."}
+{"run": "cancel_transient_503_retry", "seq": 13, "kind": "reply", "text": "Cancelled \u2705 booking B-0001."}
+{"run": "cancel_transient_503_retry", "seq": 14, "kind": "turn_summary", "turn": 2, "phase": "DONE", "tool_calls": 4, "tool_errors": 1, "by_tool": {"list_bookings": 2, "cancel": 2}, "tool_latency_ms": 0.02, "tokens": "***", "cost_usd": 0.0}

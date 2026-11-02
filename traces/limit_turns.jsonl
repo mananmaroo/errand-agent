@@ -1,5 +1,7 @@
 {"run": "limit_turns", "seq": 0, "kind": "model", "model": "scripted-v1", "input": "hi", "intent": null, "slots": {}, "tokens": "***"}
 {"run": "limit_turns", "seq": 1, "kind": "reply", "text": "I can book, reschedule or cancel a home service. What do you need?"}
-{"run": "limit_turns", "seq": 2, "kind": "model", "model": "scripted-v1", "input": "hi", "intent": null, "slots": {}, "tokens": "***"}
-{"run": "limit_turns", "seq": 3, "kind": "reply", "text": "I can book, reschedule or cancel a home service. What do you need?"}
-{"run": "limit_turns", "seq": 4, "kind": "state", "frm": "COLLECTING", "to": "FAILED", "why": "I've hit my conversation limit, so I've stopped here. Nothin"}
+{"run": "limit_turns", "seq": 2, "kind": "turn_summary", "turn": 1, "phase": "COLLECTING", "tool_calls": 0, "tool_errors": 0, "by_tool": {}, "tool_latency_ms": 0, "tokens": "***", "cost_usd": 0.0}
+{"run": "limit_turns", "seq": 3, "kind": "model", "model": "scripted-v1", "input": "hi", "intent": null, "slots": {}, "tokens": "***"}
+{"run": "limit_turns", "seq": 4, "kind": "reply", "text": "I can book, reschedule or cancel a home service. What do you need?"}
+{"run": "limit_turns", "seq": 5, "kind": "turn_summary", "turn": 2, "phase": "COLLECTING", "tool_calls": 0, "tool_errors": 0, "by_tool": {}, "tool_latency_ms": 0, "tokens": "***", "cost_usd": 0.0}
+{"run": "limit_turns", "seq": 6, "kind": "state", "frm": "COLLECTING", "to": "FAILED", "why": "I've hit my conversation limit, so I've stopped here. Nothin"}

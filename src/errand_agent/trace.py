@@ -35,6 +35,16 @@ class Tracer:
             with self.path.open("a") as f:
                 f.write(json.dumps(ev) + "\n")
 
+    def summary(self, phase: str, turn: int) -> None:
+        tools = [e for e in self.events if e["kind"] == "tool"]
+        by_name: dict[str, int] = {}
+        for e in tools:
+            by_name[e["name"]] = by_name.get(e["name"], 0) + 1
+        self.emit("turn_summary", turn=turn, phase=phase, tool_calls=len(tools),
+                  tool_errors=sum(not e["ok"] for e in tools), by_tool=by_name,
+                  tool_latency_ms=round(sum(e["latency_ms"] for e in tools), 2),
+                  tokens=self.tokens, cost_usd=round(self.cost, 6))
+
     def transition(self, frm: str, to: str, why: str) -> None:
         if frm != to:
             self.emit("state", frm=frm, to=to, why=why)

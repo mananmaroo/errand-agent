@@ -35,5 +35,6 @@
 | restart_after_server_committed | crash after commit -> resume finds booked, 0 extra book calls | book calls=1, bookings=1, resume reply='Booked ✅ E-201 on 2026-11-02 a' | PASS | invariants ok |
 | restart_before_commit_in_window | crash before commit, resume <30s -> same-key retry, 1 booking | book keys=['e297cefa91c12f74', 'e297cefa91c12f74'], bookings=1 | PASS | invariants ok |
 | restart_before_commit_after_window | crash, down 120s -> no retry, voided, asks re-approval | book calls=1, phase=AWAITING_APPROVAL | PASS | invariants ok |
+| memory_question_cannot_capture_approval | unanswered memory Q expires; booking 'yes' books and does NOT promote inferred fact (BUG-3 regression) | fact=inferred, bookings=2 | PASS | invariants ok |
 
-**35/35 passed**
+**36/36 passed**

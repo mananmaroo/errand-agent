@@ -3,8 +3,11 @@
 {"run": "memory_forget_never_reused", "seq": 2, "kind": "tool", "name": "get_provider", "args": {"provider_id": "P-103"}, "ok": true, "result": {"id": "P-103", "name": "AquaCare", "service": "plumber", "price": 1450, "rating": 4.8, "free_slots": ["2026-11-02T10:00", "2026-11-02T11:00", "2026-11-02T14:00", "2026-11-03T11:00", "2026-11-04T09:00", "2026-11-04T10:00", "2026-11-04T16:00", "2026-11-05T08:00", "2026-11-06T09:00", "2026-11-06T11:00", "2026-11-06T14:00", "2026-11-07T08:00", "2026-11-07T11:00", "2026-11-07T16:00"], "attributes": {"verified": true, "area": "koramangala"}, "reviews": ["Arrived on time, fixed it quickly.", "A bit pricey but reliable."]}, "latency_ms": 0.0}
 {"run": "memory_forget_never_reused", "seq": 3, "kind": "state", "frm": "COLLECTING", "to": "AWAITING_APPROVAL", "why": "proposal ready"}
 {"run": "memory_forget_never_reused", "seq": 4, "kind": "reply", "text": "I can book AquaCare (P-103) on 2026-11-02 at 10:00 for \u20b91450. Reply 'yes' to confirm."}
-{"run": "memory_forget_never_reused", "seq": 5, "kind": "model", "model": "scripted-v1", "input": "forget my area", "intent": "forget", "slots": {"forget": "area"}, "tokens": "***"}
-{"run": "memory_forget_never_reused", "seq": 6, "kind": "memory_forget", "key": "area"}
-{"run": "memory_forget_never_reused", "seq": 7, "kind": "reply", "text": "Done \u2014 I've forgotten your area and won't use it again."}
+{"run": "memory_forget_never_reused", "seq": 5, "kind": "turn_summary", "turn": 1, "phase": "AWAITING_APPROVAL", "tool_calls": 2, "tool_errors": 0, "by_tool": {"search_providers": 1, "get_provider": 1}, "tool_latency_ms": 0.02, "tokens": "***", "cost_usd": 0.0}
+{"run": "memory_forget_never_reused", "seq": 6, "kind": "model", "model": "scripted-v1", "input": "forget my area", "intent": "forget", "slots": {"forget": "area"}, "tokens": "***"}
+{"run": "memory_forget_never_reused", "seq": 7, "kind": "memory_forget", "key": "area"}
+{"run": "memory_forget_never_reused", "seq": 8, "kind": "reply", "text": "Done \u2014 I've forgotten your area and won't use it again."}
+{"run": "memory_forget_never_reused", "seq": 9, "kind": "turn_summary", "turn": 2, "phase": "COLLECTING", "tool_calls": 2, "tool_errors": 0, "by_tool": {"search_providers": 1, "get_provider": 1}, "tool_latency_ms": 0.02, "tokens": "***", "cost_usd": 0.0}
 {"run": "memory_forget_never_reused", "seq": 0, "kind": "model", "model": "scripted-v1", "input": "book an electrician this week", "intent": "book", "slots": {"service": "electrician", "date_range": ["2026-11-02", "2026-11-07"]}, "tokens": "***"}
 {"run": "memory_forget_never_reused", "seq": 1, "kind": "reply", "text": "Which area are you in (Koramangala, Indiranagar, HSR)?"}
+{"run": "memory_forget_never_reused", "seq": 2, "kind": "turn_summary", "turn": 1, "phase": "COLLECTING", "tool_calls": 0, "tool_errors": 0, "by_tool": {}, "tool_latency_ms": 0, "tokens": "***", "cost_usd": 0.0}

@@ -26,6 +26,7 @@ class Parse:
 
 class ScriptedModel:
     name = "scripted-v1"
+    usd_per_1k_tokens = 0.0  # a live LLM adapter sets its real price here
 
     def parse(self, text: str) -> Parse:
         t = text.lower().strip()

@@ -3,3 +3,4 @@
 {"run": "unknown_tool_error", "seq": 2, "kind": "error", "error": "RuntimeError: boom"}
 {"run": "unknown_tool_error", "seq": 3, "kind": "state", "frm": "COLLECTING", "to": "FAILED", "why": "Something unexpected went wrong, so I stopped. No booking wa"}
 {"run": "unknown_tool_error", "seq": 4, "kind": "reply", "text": "Something unexpected went wrong, so I stopped. No booking was made."}
+{"run": "unknown_tool_error", "seq": 5, "kind": "turn_summary", "turn": 1, "phase": "FAILED", "tool_calls": 1, "tool_errors": 1, "by_tool": {"search_providers": 1}, "tool_latency_ms": 0.01, "tokens": "***", "cost_usd": 0.0}

@@ -243,5 +243,12 @@
     "actual": "book calls=1, phase=AWAITING_APPROVAL",
     "pass": true,
     "notes": "invariants ok"
+  },
+  {
+    "scenario": "memory_question_cannot_capture_approval",
+    "expected": "unanswered memory Q expires; booking 'yes' books and does NOT promote inferred fact (BUG-3 regression)",
+    "actual": "fact=inferred, bookings=2",
+    "pass": true,
+    "notes": "invariants ok"
   }
 ]

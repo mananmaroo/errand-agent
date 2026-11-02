@@ -2,3 +2,4 @@
 {"run": "cancel_requires_approval", "seq": 1, "kind": "tool", "name": "list_bookings", "args": {"user_id": "u1"}, "ok": true, "result": [{"id": "B-0001", "user_id": "u1", "provider_id": "A-301", "service": "ac_servicing", "slot": "2026-11-02T11:00", "status": "upcoming", "price": 1500}], "latency_ms": 0.0}
 {"run": "cancel_requires_approval", "seq": 2, "kind": "state", "frm": "COLLECTING", "to": "AWAITING_APPROVAL", "why": "cancel proposal"}
 {"run": "cancel_requires_approval", "seq": 3, "kind": "reply", "text": "Cancel booking B-0001 with A-301 on 2026-11-02 at 11:00? Reply 'yes' to confirm."}
+{"run": "cancel_requires_approval", "seq": 4, "kind": "turn_summary", "turn": 1, "phase": "AWAITING_APPROVAL", "tool_calls": 1, "tool_errors": 0, "by_tool": {"list_bookings": 1}, "tool_latency_ms": 0.0, "tokens": "***", "cost_usd": 0.0}

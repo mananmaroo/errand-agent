@@ -77,6 +77,7 @@ class Agent:
                                         "Nothing was booked in this session's last step.")
         parse = self.model.parse(text)
         self.trace.tokens += parse.tokens
+        self.trace.cost += parse.tokens / 1000 * getattr(self.model, "usd_per_1k_tokens", 0.0)
         self.trace.emit("model", model=self.model.name, input=text, intent=parse.intent,
                         slots=parse.slots, tokens=parse.tokens)
         try:
@@ -89,6 +90,7 @@ class Agent:
             reply = self._finish(FAILED, "Something unexpected went wrong, so I stopped. "
                                          + self._safe_status())
         self.trace.emit("reply", text=reply)
+        self.trace.summary(self.state.phase, self.turns)
         return reply
 
     def resume(self) -> str | None:
@@ -122,6 +124,9 @@ class Agent:
         s = self.state
         if s.pending_memory and parse.intent in ("confirm", "deny"):
             return self._on_memory_answer(parse.intent == "confirm")
+        if s.pending_memory:  # BUG-3 fix: unanswered question expires; never promote later
+            self.trace.emit("memory_confirm", key=s.pending_memory, accepted=None, why="unanswered")
+            s.pending_memory = None
         if parse.intent == "memory_view":
             return self.memory.describe()
         if parse.intent == "forget":

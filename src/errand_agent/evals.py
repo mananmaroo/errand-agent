@@ -383,6 +383,18 @@ EVALS += [
 ]
 
 
+EVALS += [
+    Eval("memory_question_cannot_capture_approval", "unanswered memory Q expires; booking 'yes' "
+         "books and does NOT promote inferred fact (BUG-3 regression)",
+         ["book an electrician in koramangala this week", "yes", NEW_SESSION,
+          "book an electrician this week", "not before 10", "yes"],
+         lambda r: (f"fact={mem(r, 'preferred_provider:electrician')['source']}, bookings={n_booked(r)}",
+                    mem(r, "preferred_provider:electrician")["source"] == "inferred"
+                    and n_booked(r) == 2),
+         lambda: Scenario(book_sequence=["success", "success"])),
+]
+
+
 def run_all(tmp: Path | None = None) -> list[dict]:
     tmp = tmp or Path(tempfile.mkdtemp())
     rows = []
